@@ -115,3 +115,88 @@ def get_yearwise_medal_tally(df, country):
     new_df = temp_df[temp_df["region"] == country]
     new_df = new_df.groupby("Year").count()["Medal"].reset_index()
     return new_df
+
+
+def get_most_successful_athlete(df, sport="", country="", top=15):
+    temp_df = df.dropna(subset=["Medal"])
+
+    if len(sport) != 0 and sport != "Overall":
+        temp_df = temp_df[temp_df["Sport"] == sport]
+
+    if len(country) != 0:
+        temp_df = temp_df[temp_df["region"] == country]
+
+    temp_df = (
+        temp_df["Name"]
+        .value_counts()
+        .reset_index()
+        .head(top)
+        .merge(temp_df, left_on="index", right_on="Name", how="left")
+    )
+
+    temp_df = temp_df[
+        ["index", "Name_x", "Sport", "region"]
+    ].drop_duplicates("index")
+
+    temp_df.rename(
+        columns={
+            "index": "Name",
+            "Name_x": "Medals",
+            "region": "Country",
+        },
+        inplace=True,
+    )
+    return temp_df.reset_index(drop=True)
+
+
+def get_country_event_heatmap(df, country):
+    country_medal_over_years = df.dropna(
+        subset=["Medal"]
+    ).drop_duplicates(
+        subset=["Year", "Sport", "City", "region", "Medal"]
+    )
+    country_medal_over_years = country_medal_over_years[
+        country_medal_over_years["region"] == country
+    ]
+    pivot = country_medal_over_years.pivot_table(
+        index="Sport",
+        columns="Year",
+        values="Medal",
+        aggfunc="count",
+        fill_value=0,
+    )
+    return pivot
+
+
+def get_weight_v_height(df, sport):
+    athlete_df = df.drop_duplicates(subset=["Name", "region"])
+    athlete_df["Medal"].fillna("No Medal", inplace=True)
+    if sport != "Overall":
+        athlete_df = athlete_df[athlete_df["Sport"] == sport]
+    return athlete_df
+
+
+def get_men_vs_women(df):
+    athlete_df = df.drop_duplicates(subset=["Name", "region"])
+
+    men = (
+        athlete_df[athlete_df["Sex"] == "M"]
+        .groupby("Year")
+        .count()["Name"]
+        .reset_index()
+    )
+    women = (
+        athlete_df[athlete_df["Sex"] == "F"]
+        .groupby("Year")
+        .count()["Name"]
+        .reset_index()
+    )
+
+    final = men.merge(women, on="Year", how="left")
+    final.rename(
+        columns={"Name_x": "Male", "Name_y": "Female"}, inplace=True
+    )
+
+    final.fillna(0, inplace=True)
+
+    return final
